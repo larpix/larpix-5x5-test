@@ -21,21 +21,22 @@ def unmask(c, keys):
             c.write_configuration(key, 'channel_mask')
 
 
-def main(runtime=60, file_count=1, data_dir='/data/v3/5x5/cold_Apr2025/'):
+def main(runtime=60, file_count=1, data_dir='data/', tag=None):
     
     #load controller
     c=larpix.Controller()
     c.io = larpix.io.PACMAN_IO(relaxed=True, asic_version=3)
    
     for i in range(file_count):
-        data(c,runtime, data_dir=data_dir )
+        data(c,runtime, data_dir=data_dir, tag=tag )
     
 
 if __name__ == '__main__':
         parser = argparse.ArgumentParser()
         
         parser.add_argument('--file_count', default=1, type=int, help='''number of consecutive files to record''')
+        parser.add_argument('--data_dir', default='data/', type=str, help='''Path to write data file, default is in current directory''')
         parser.add_argument('--runtime', default=60, type=int, help='''Time in seconds for each data file''')
-        parser.add_argument('--data_dir', default='/data/v3/5x5/cold_Apr2025/cosmics_5kv_3/', type=str, help='''Path to write data file, default is in current directory''')
+        parser.add_argument('--tag', default=None, type=str, help='''Tag / description to add to filename''')
         args = parser.parse_args()
         main(**vars(args))         
