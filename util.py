@@ -81,7 +81,7 @@ def extract_thresholds(threshold_file_name, pedestal_file_name):
 def now():
     return time.strftime("%Y_%m_%d_%H_%M_%S_%Z")
 
-def data(c, runtime, data_dir=_default_data_dir, fname=None, tag=''):  
+def data(c, runtime, data_dir=_default_data_dir, fname=None, tag=None):  
     if True:
         if fname is None: 
             if not tag is None:
@@ -110,6 +110,8 @@ def load_controller(name='controller.pkl'):
 def save_controller(c, name='controller.pkl'):
     with open(name, 'wb') as f:
         c.io = None
+        c.reads.clear()
+        c.logger = None
         pickle.dump(c, f, pickle.HIGHEST_PROTOCOL)
     return
 
