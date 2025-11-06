@@ -25,7 +25,7 @@ def conf_root(c, cm, cadd, iog, iochan):
     I_TX_DIFF = 7
     TX_SLICE =7
     R_TERM = 7
-    I_RX = 7
+    I_RX = 3
     V_CM = 5
     c.add_chip(cm, version='2d')
     #  - - default larpix chip_id is '1'

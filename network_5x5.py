@@ -15,7 +15,7 @@ def conf_east(c, cm, ck, cadd, iog, iochan):
     I_TX_DIFF = 7
     TX_SLICE = 15
     R_TERM = 7
-    I_RX = 7
+    I_RX = 3
     V_CM = 5
 
 # add second chip
@@ -89,7 +89,7 @@ def conf_south(c, cm, ck, cadd, iog, iochan):
     I_TX_DIFF = 7
     TX_SLICE = 15
     R_TERM = 7
-    I_RX = 7
+    I_RX = 3
     V_CM = 5
 
 # add second chip
@@ -209,7 +209,7 @@ def conf_root(c, cm, cadd, iog, iochan):
     I_TX_DIFF = 7
     TX_SLICE = 15
     R_TERM = 7
-    I_RX = 7
+    I_RX = 3
     V_CM = 5
     c.add_chip(cm, version=3)
     #  - - default larpix chip_id is '1'
