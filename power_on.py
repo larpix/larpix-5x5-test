@@ -42,13 +42,42 @@ def main(vdda, vddd, io_group=1, pacman_tile='1', verbose=True):
 
     ###########################################
     IO_GROUP = io_group
-    VDDA_DAC = vdda  # VDDA_DAC = 52000 #48000 cold
-    VDDD_DAC = vddd  # VDDD_DAC = 28000 # 32000# 28500 # ~1.1 V #42000 cold
+    # VDDA_DAC = vdda  # VDDA_DAC = 52000 #48000 cold
+    # VDDD_DAC = vddd  # VDDD_DAC = 28000 # 32000# 28500 # ~1.1 V #42000 cold
     RESET_CYCLES = 300000  # 5000000
 
     list_pacman_tiles = pacman_tile.split(',')
     for i in range(len(list_pacman_tiles)):
         list_pacman_tiles[i] = int(list_pacman_tiles[i].strip())
+    list_vdda = vdda.split(',')
+    for i in range(len(list_vdda)):
+        list_vdda[i] = int(list_vdda[i].strip())
+    if len(list_vdda) == 1:
+        list_vdda = list_vdda * len(list_pacman_tiles)
+    if len(list_vdda) != len(list_pacman_tiles):
+        print('ERROR: number of VDDA values must be 1 or equal to number of tiles')
+        return
+    list_vddd = vddd.split(',')
+    for i in range(len(list_vddd)):
+        list_vddd[i] = int(list_vddd[i].strip())
+    if len(list_vddd) == 1:
+        list_vddd = list_vddd * len(list_pacman_tiles)
+    if len(list_vddd) != len(list_pacman_tiles):
+        print('ERROR: number of VDDD values must be 1 or equal to number of tiles')
+        return
+
+    VDDA_DAC = {}
+    VDDD_DAC = {}
+    for idx, PACMAN_TILE in enumerate(list_pacman_tiles):
+        VDDA_DAC[PACMAN_TILE] = list_vdda[idx]
+        VDDD_DAC[PACMAN_TILE] = list_vddd[idx]
+
+    ###########################################
+    print('Powering on PACMAN tiles with the following VDDA and VDDD values:')
+    for PACMAN_TILE in list_pacman_tiles:
+        print('  Tile ', PACMAN_TILE, '  VDDA DAC: ', VDDA_DAC[PACMAN_TILE],
+              '  VDDD DAC: ', VDDD_DAC[PACMAN_TILE])
+    ###########################################
 
     # create a larpix controller
     c = larpix.Controller()
@@ -81,8 +110,8 @@ def main(vdda, vddd, io_group=1, pacman_tile='1', verbose=True):
         time.sleep(0.015)
 
         # set voltage dacs  VDDD first
-        c.io.set_reg(0x24020+(PACMAN_TILE-1), VDDD_DAC, io_group)
-        c.io.set_reg(0x24010+(PACMAN_TILE-1), VDDA_DAC, io_group)
+        c.io.set_reg(0x24020+(PACMAN_TILE-1), VDDD_DAC[PACMAN_TILE], io_group)
+        c.io.set_reg(0x24010+(PACMAN_TILE-1), VDDA_DAC[PACMAN_TILE], io_group)
 
     c.io.reset_larpix(length=1024)
     c.io.reset_larpix(length=1024)
@@ -95,6 +124,8 @@ def main(vdda, vddd, io_group=1, pacman_tile='1', verbose=True):
         tile_enable_val = tile_enable_sum+0x0200  # enable one tile at a time
         c.io.set_reg(0x00000010, tile_enable_val, io_group)
         time.sleep(0.05)
+
+    print('Power readback after power on:')
 
     readback = power_readback(
         c.io, io_group, pacman_version, list_pacman_tiles)
@@ -115,9 +146,9 @@ if __name__ == '__main__':
                         help='''Which io_group, default 1''')
     parser.add_argument('--pacman_tile', default='1', type=str,
                         help='''Which tile to enable power on''')
-    parser.add_argument('--vdda', default=56000, type=int,
+    parser.add_argument('--vdda', default='0', type=str,
                         help='''VDDA dac value''')
-    parser.add_argument('--vddd', default=30000, type=int,
+    parser.add_argument('--vddd', default='0', type=str,
                         help='''VDDA dac value''')
     args = parser.parse_args()
     main(**vars(args))
