@@ -21,7 +21,7 @@ def read(c, key, param):
     return 0
 
 
-def conf_root(c, cm, cadd, iog, iochan):
+def conf_root(c, cm, cadd, iog, iochan, pacman_version):
     I_TX_DIFF = 7
     TX_SLICE = 7
     R_TERM = 7
@@ -88,12 +88,15 @@ def conf_root(c, cm, cadd, iog, iochan):
     c[cm].config.enable_piso_downstream = [1, 1, 1, 1]  # [1, 0, 0, 0]  # piso0
     c.write_configuration(cm, 'enable_piso_downstream')
     time.sleep(0.01)
+
     # enable pacman uart receiver
-    rx_en = c.io.get_reg(0x18, iog)
     ch_set = pow(2, iochan-1)
-    # ch_set = pow(2, 0) #+ pow(2, 1) + pow(2, 2) + pow(2, 3)
-    # print('enable pacman uart receiver', rx_en, ch_set, rx_en | ch_set)
-    c.io.set_reg(0x18, rx_en | ch_set, iog)
+    if pacman_version == 'v1rev5':
+        rx_en = c.io.get_reg(0x201c, iog)
+        c.io.set_reg(0x201c, rx_en ^ ch_set, iog)
+    else:
+        rx_en = c.io.get_reg(0x18, iog)
+        c.io.set_reg(0x18, rx_en | ch_set, iog)
     ok, diff = c.enforce_configuration(cm, n=2, n_verify=2, timeout=0.05)
     if not ok:
         ok, diff = c.enforce_configuration(cm, n=2, n_verify=2, timeout=0.05)
@@ -174,6 +177,7 @@ def main(io_group=1, pacman_tile='1', verbose=True):
 
     ###########################################
     IO_GROUP = io_group
+    pacman_version = 'v1rev4'
     list_pacman_tiles = pacman_tile.split(',')
     for i in range(len(list_pacman_tiles)):
         list_pacman_tiles[i] = int(list_pacman_tiles[i].strip())
@@ -183,14 +187,16 @@ def main(io_group=1, pacman_tile='1', verbose=True):
     # create a larpix controller
     c = larpix.Controller()
     c.io = larpix.io.PACMAN_IO(relaxed=True, asic_version=3)
-
-    # disable pacman rx uarts on tile 1
-    bitstring = list('00000000000000000000000000000000')
-    # bitstring = list('00000000000000000000000000000000')
-    rx_en = c.io.get_reg(0x18, io_group)
+    
+    if pacman_version == 'v1rev5':
+        RX_REG = 0x201c
+        RX_VAL = 0xffffffff
+    else:
+        RX_REG = 0x18
+        RX_VAL = 0
+    rx_en = c.io.get_reg(RX_REG, io_group)
     print(rx_en)
-#    c.io.set_reg(0x18, rx_en & 0xf, io_group)
-    c.io.set_reg(0x18, int("".join(bitstring), 2), io_group)
+    c.io.set_reg(RX_REG, RX_VAL, io_group)
 
     c.io.reset_larpix(length=1024)
     c.io.reset_larpix(length=1024)
