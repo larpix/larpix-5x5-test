@@ -158,39 +158,6 @@ def conf_south(c, cm, ck, cadd, iog, iochan):
     else:
         print(ck, 'unable to configure')
 
-
-def power_readback(io, io_group, pacman_version, tile):
-    readback={}
-    for i in tile:
-        readback[i]=[]
-        if pacman_version=='v1rev4':
-            vdda=io.get_reg(0x24030+(i-1), io_group=io_group)
-            vddd=io.get_reg(0x24040+(i-1), io_group=io_group)
-            idda=io.get_reg(0x24050+(i-1), io_group=io_group)
-            iddd=io.get_reg(0x24060+(i-1), io_group=io_group)
-            print('Tile ',i,'  VDDA: ',vdda,' mV  IDDA: ',int(idda*0.1),' mA  ',
-                  'VDDD: ',vddd,' mV  IDDD: ',int(iddd>>12),' mA')
-            readback[i]=[vdda, idda*0.1, vddd, iddd>>12]
-        elif pacman_version=='v1rev3' or 'v1revS1':
-            vdda=io.get_reg(0x00024001+(i-1)*32+1, io_group=io_group)
-            idda=io.get_reg(0x00024001+(i-1)*32, io_group=io_group)
-            vddd=io.get_reg(0x00024001+(i-1)*32+17, io_group=io_group)
-            iddd=io.get_reg(0x00024001+(i-1)*32+16, io_group=io_group)
-            print('Tile ',i,'  VDDA: ',(((vdda>>16)>>3)*4),' mV  IDDA: ',
-                  (((idda>>16)-(idda>>31)*65535)*500*0.001),' mV  VDDD: ',\
-                  (((vddd>>16)>>3)*4),' mV  IDDD: ',
-                  (((iddd>>16)-(iddd>>31)*65535)*500*0.001),' mA')
-            readback[i]=[(((vdda>>16)>>3)*4),
-                         (((idda>>16)-(idda>>31)*65535)*500*0.001),
-                         (((vddd>>16)>>3)*4),
-                         (((iddd>>16)-(iddd>>31)*65535)*500*0.001)]
-        else:
-            print('WARNING: PACMAN version ',pacman_version,' unknown')
-            return readback
-    return readback
-
-
-
 def read(c, key, param):
     c.reads = []
     c.read_configuration(key, param, timeout=0.1)
@@ -204,8 +171,7 @@ def read(c, key, param):
         # return msg.chip_id
     return 0
 
-
-def conf_root(c, cm, cadd, iog, iochan):
+def conf_root(c, cm, cadd, iog, iochan, pacman_version):
     I_TX_DIFF = 7
     TX_SLICE = 15
     R_TERM = 7
@@ -256,18 +222,20 @@ def conf_root(c, cm, cadd, iog, iochan):
     c[cm].config.v_cm_lvds_tx3 = V_CM
     c.write_configuration(cm, 'v_cm_lvds_tx3')
 
-    # c.io.set_reg(0x18, 1, io_group=1)
     c[cm].config.enable_piso_upstream = [0,0,0,0]
     c.write_configuration(cm, 'enable_piso_upstream')
     c[cm].config.enable_piso_downstream = [1, 0, 0, 0] #[1, 0, 0, 0]  # piso0
     c.write_configuration(cm, 'enable_piso_downstream')
     time.sleep(0.01)
+
     # enable pacman uart receiver
-    rx_en = c.io.get_reg(0x18, iog)
     ch_set = pow(2, iochan-1)
-    #ch_set = pow(2, 0) #+ pow(2, 1) + pow(2, 2) + pow(2, 3)
-    #print('enable pacman uart receiver', rx_en, ch_set, rx_en | ch_set)
-    c.io.set_reg(0x18, rx_en | ch_set, iog)
+    if pacman_version == 'v1rev5':
+        rx_en = c.io.get_reg(0x201c, iog)
+        c.io.set_reg(0x201c, rx_en ^ ch_set, iog)
+    else:
+        rx_en = c.io.get_reg(0x18, iog)
+        c.io.set_reg(0x18, rx_en | ch_set, iog)
     ok, diff = c.enforce_configuration(cm, n=2, n_verify=2, timeout=0.05)
     if not ok:
         ok, diff = c.enforce_configuration(cm, n=2, n_verify=2, timeout=0.05)
@@ -291,15 +259,23 @@ def main(vdda, vddd, verbose=True):
     c = larpix.Controller()
     c.io = larpix.io.PACMAN_IO(relaxed=True, asic_version=3)
     io_group = IO_GROUP
-    pacman_version = 'v1rev4'
+    pacman_version = 'v1rev5'
     pacman_tile = [PACMAN_TILE]
+
+    if pacman_version == 'v1rev5':
+        RX_REG = 0x201c
+        RX_VAL = 0xffffffff
+    else:
+        RX_REG = 0x18
+        RX_VAL = 0
+    c.io.set_reg(RX_REG, RX_VAL, io_group)
 
     c.io.reset_larpix(length=1024)
     chip11_key = larpix.key.Key(IO_GROUP, IO_CHAN, 11)
 
     all_keys=[]
 
-    conf_root(c, chip11_key, 11, IO_GROUP, IO_CHAN)
+    conf_root(c, chip11_key, 11, IO_GROUP, IO_CHAN, pacman_version)
     all_keys.append(chip11_key)
     # add second chip
     chip12_key = larpix.key.Key(IO_GROUP, IO_CHAN, 12)
@@ -327,7 +303,7 @@ def main(vdda, vddd, verbose=True):
     
     #print('IO_CHAN')
     chip21_key = larpix.key.Key(IO_GROUP, IO_CHAN, 21)
-    conf_root(c, chip21_key, 21, IO_GROUP, IO_CHAN)
+    conf_root(c, chip21_key, 21, IO_GROUP, IO_CHAN, pacman_version)
     all_keys.append(chip21_key)
     
     # add second chip
@@ -354,7 +330,7 @@ def main(vdda, vddd, verbose=True):
     IO_CHAN = IO_CHAN + 1
     
     chip31_key = larpix.key.Key(IO_GROUP, IO_CHAN, 31)
-    conf_root(c, chip31_key, 31, IO_GROUP, IO_CHAN)
+    conf_root(c, chip31_key, 31, IO_GROUP, IO_CHAN, pacman_version)
     all_keys.append(chip31_key)
     
     # add second chip
@@ -382,7 +358,7 @@ def main(vdda, vddd, verbose=True):
 
     chip41_key = larpix.key.Key(IO_GROUP, IO_CHAN, 41)
     
-    conf_root(c, chip41_key, 41, IO_GROUP, IO_CHAN)
+    conf_root(c, chip41_key, 41, IO_GROUP, IO_CHAN, pacman_version)
     #conf_south(c, chip31_key, chip41_key, 41, IO_GROUP, IO_CHAN)
     all_keys.append(chip41_key)
     
@@ -438,7 +414,12 @@ def main(vdda, vddd, verbose=True):
     all_configured=True
     not_configured=[]
     for key in tqdm.tqdm(all_keys):
-        set_register(c, key, 'csa_enable', [0]*64)
+
+        set_register(c, key, 'channel_mask', [0]*64)
+        set_register(c, key, 'csa_enable', [1]*64)
+        set_register(c, key, 'enable_periodic_trigger', 1)
+        set_register(c, key, 'periodic_trigger_cycles', int(1e5))
+
         ok, diff = c.enforce_configuration(key, timeout=0.1, n=2, n_verify=2)
         if ok:
             pass

@@ -11,7 +11,15 @@ def power_readback(io, io_group, pacman_version, tile):
     readback={}
     for i in tile:
         readback[i]=[]
-        if pacman_version=='v1rev4':
+        if pacman_version=='v1rev5':
+            vdda=io.get_reg(0x24030+(i-1), io_group=io_group)
+            vddd=io.get_reg(0x24040+(i-1), io_group=io_group)
+            idda=io.get_reg(0x24050+(i-1), io_group=io_group)
+            iddd=io.get_reg(0x24060+(i-1), io_group=io_group)
+            print('Tile ',i,'  VDDA: ',vdda,' mV  IDDA: ', idda/4,' mA  ',
+                  'VDDD: ',vddd,' mV  IDDD: ',iddd/4,' mA')
+            readback[i]=[vdda, idda/4, vddd, iddd/4]
+        elif pacman_version=='v1rev4':
             vdda=io.get_reg(0x24030+(i-1), io_group=io_group)
             vddd=io.get_reg(0x24040+(i-1), io_group=io_group)
             idda=io.get_reg(0x24050+(i-1), io_group=io_group)
@@ -52,23 +60,31 @@ def main(vdda, vddd, io_group=1, pacman_tile=1, verbose=True):
     c = larpix.Controller()
     c.io = larpix.io.PACMAN_IO(relaxed=True, asic_version=3)
     io_group = IO_GROUP
-    pacman_version = 'v1rev4'
+    pacman_version = 'v1rev5'
     pacman_tile = [PACMAN_TILE]
 
-    bitstring = list('00000000000000000000000000000000')
-    rx_en = c.io.get_reg(0x18, io_group)
-    c.io.set_reg(0x18, int("".join(bitstring), 2), io_group)
+    if pacman_version == 'v1rev5': 
+        CLK_RATIO = 1
+        RX_REG = 0x201c
+        RX_VAL = 0xffffffff
+    else:
+        CLK_RATIO = 5
+        RX_REG = 0x18
+        RX_VAL = 0
+
+    c.io.set_reg(RX_REG, RX_VAL, io_group)
+
     if True:
         print('enable pacman power')
         # set up mclk in pacman
         c.io.set_reg(0x101c, 4, io_group)
-        c.io.set_uart_clock_ratio(IO_CHAN,   5)
+        c.io.set_uart_clock_ratio(IO_CHAN, CLK_RATIO)
         time.sleep(0.015)
-        c.io.set_uart_clock_ratio(IO_CHAN+1, 5)
+        c.io.set_uart_clock_ratio(IO_CHAN+1, CLK_RATIO)
         time.sleep(0.015)
-        c.io.set_uart_clock_ratio(IO_CHAN+2, 5)
+        c.io.set_uart_clock_ratio(IO_CHAN+2, CLK_RATIO)
         time.sleep(0.015)
-        c.io.set_uart_clock_ratio(IO_CHAN+3, 5)
+        c.io.set_uart_clock_ratio(IO_CHAN+3, CLK_RATIO)
         
         time.sleep(0.015)
 
@@ -107,7 +123,7 @@ if __name__ == '__main__':
         parser = argparse.ArgumentParser()
         parser.add_argument('--io_group', default=1, type=int, help='''Which io_group, default 1''')
         parser.add_argument('--pacman_tile', default=1, type=int, help='''Which tile to enable power on''')
-        parser.add_argument('--vdda', default=56000, type=int, help='''VDDA dac value''')
+        parser.add_argument('--vdda', default=56000, type=int, help='''VDDD dac value''')
         parser.add_argument('--vddd', default=30000, type=int, help='''VDDA dac value''')
         args = parser.parse_args()
         main(**vars(args))

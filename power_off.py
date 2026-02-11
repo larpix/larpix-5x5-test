@@ -11,7 +11,15 @@ def power_readback(io, io_group, pacman_version, tile):
     readback={}
     for i in tile:
         readback[i]=[]
-        if pacman_version=='v1rev4':
+        if pacman_version=='v1rev5':
+            vdda=io.get_reg(0x24030+(i-1), io_group=io_group)
+            vddd=io.get_reg(0x24040+(i-1), io_group=io_group)
+            idda=io.get_reg(0x24050+(i-1), io_group=io_group)
+            iddd=io.get_reg(0x24060+(i-1), io_group=io_group)
+            print('Tile ',i,'  VDDA: ',vdda,' mV  IDDA: ', idda/4,' mA  ',
+                  'VDDD: ',vddd,' mV  IDDD: ',iddd/4,' mA')
+            readback[i]=[vdda, idda/4, vddd, iddd/4]
+        elif pacman_version=='v1rev4':
             vdda=io.get_reg(0x24030+(i-1), io_group=io_group)
             vddd=io.get_reg(0x24040+(i-1), io_group=io_group)
             idda=io.get_reg(0x24050+(i-1), io_group=io_group)
@@ -52,12 +60,17 @@ def main(vdda, vddd, io_group=1, pacman_tile=1, verbose=True):
     c = larpix.Controller()
     c.io = larpix.io.PACMAN_IO(relaxed=True, asic_version=3)
     io_group = IO_GROUP
-    pacman_version = 'v1rev4'
+    pacman_version = 'v1rev5'
     pacman_tile = [PACMAN_TILE]
 
-    bitstring = list('00000000000000000000000000000000')
-    rx_en = c.io.get_reg(0x18, io_group)
-    c.io.set_reg(0x18, int("".join(bitstring), 2), io_group)
+    if pacman_version == 'v1rev5':
+        RX_REG = 0x201c
+        RX_VAL = 0xffffffff
+    else:
+        RX_REG = 0x18
+        RX_VAL = 0
+    c.io.set_reg(RX_REG, RX_VAL, io_group)
+
     if True:
         print('disable pacman power')
         # disable tile power, LARPIX clock

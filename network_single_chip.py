@@ -21,7 +21,7 @@ def read(c, key, param):
     return 0
 
 
-def conf_root(c, cm, cadd, iog, iochan):
+def conf_root(c, cm, cadd, iog, iochan, pacman_version):
     I_TX_DIFF = 7
     TX_SLICE =7
     R_TERM = 7
@@ -44,17 +44,11 @@ def conf_root(c, cm, cadd, iog, iochan):
     c.write_configuration(cm, 'i_rx1')
     c[cm].config.r_term1 = R_TERM
     c.write_configuration(cm, 'r_term1')
-    c[cm].config.enable_posi = [0, 1, 0, 0] #[0, 1, 0, 0]
+    c[cm].config.enable_posi = [0, 1, 0, 0] #[1, 0, 0, 0] for charge injection board
     c.write_configuration(cm, 'enable_posi')
     time.sleep(0.01)
     c[cm].config.i_tx_diff0 = I_TX_DIFF
     c.write_configuration(cm, 'i_tx_diff0')
-    c[cm].config.i_tx_diff1 = I_TX_DIFF
-    c.write_configuration(cm, 'i_tx_diff1')
-    c[cm].config.i_tx_diff2 = I_TX_DIFF
-    c.write_configuration(cm, 'i_tx_diff2')
-    c[cm].config.i_tx_diff3 = I_TX_DIFF
-    c.write_configuration(cm, 'i_tx_diff3')
     c[cm].config.tx_slices0 = TX_SLICE
     c.write_configuration(cm, 'tx_slices0')
     c[cm].config.i_tx_diff3 = I_TX_DIFF
@@ -78,22 +72,21 @@ def conf_root(c, cm, cadd, iog, iochan):
     c[cm].config.v_cm_lvds_tx3 = V_CM
     c.write_configuration(cm, 'v_cm_lvds_tx3')
 
-    # c.io.set_reg(0x18, 1, io_group=1)
-    c[cm].config.enable_piso_downstream = [
-        1, 1, 1, 1]  # krw adding May 8, 2023
-    c.write_configuration(cm, 'enable_piso_downstream')
     time.sleep(0.01)
-    c[cm].config.enable_piso_upstream = [0,0,0,0]
+    c[cm].config.enable_piso_upstream = [0, 0, 0, 0]
     c.write_configuration(cm, 'enable_piso_upstream')
-    c[cm].config.enable_piso_downstream = [1, 1,1, 1] #[1, 0, 0, 0]  # piso0
+    c[cm].config.enable_piso_downstream = [1, 1, 1, 1]
     c.write_configuration(cm, 'enable_piso_downstream')
     time.sleep(0.01)
+
     # enable pacman uart receiver
-    rx_en = c.io.get_reg(0x18, iog)
     ch_set = pow(2, iochan-1)
-    #ch_set = pow(2, 0) #+ pow(2, 1) + pow(2, 2) + pow(2, 3)
-    #print('enable pacman uart receiver', rx_en, ch_set, rx_en | ch_set)
-    c.io.set_reg(0x18, rx_en | ch_set, iog)
+    if pacman_version == 'v1rev5':
+        rx_en = c.io.get_reg(0x201c, iog)
+        c.io.set_reg(0x201c, rx_en ^ ch_set, iog)
+    else:
+        rx_en = c.io.get_reg(0x18, iog)
+        c.io.set_reg(0x18, rx_en | ch_set, iog)
     ok, diff = c.enforce_configuration(cm, n=2, n_verify=2, timeout=0.05)
     if not ok:
         ok, diff = c.enforce_configuration(cm, n=2, n_verify=2, timeout=0.05)
@@ -121,16 +114,18 @@ def main(vdda, vddd, io_group=1, pacman_tile=1, verbose=True):
     c = larpix.Controller()
     c.io = larpix.io.PACMAN_IO(relaxed=True, asic_version=3)
     io_group = IO_GROUP
-    pacman_version = 'v1rev4'
+    pacman_version = 'v1rev5'
     pacman_tile = [PACMAN_TILE]
-
-    # disable pacman rx uarts on tile 1
-    bitstring = list('00000000000000000000000000000000')
-    #bitstring = list('00000000000000000000000000000000')
-    rx_en = c.io.get_reg(0x18, io_group)
+    
+    if pacman_version == 'v1rev5':
+        RX_REG = 0x201c
+        RX_VAL = 0xffffffff
+    else:
+        RX_REG = 0x18
+        RX_VAL = 0
+    rx_en = c.io.get_reg(RX_REG, io_group)
     print(rx_en)
-#    c.io.set_reg(0x18, rx_en & 0xf, io_group)
-    c.io.set_reg(0x18, int("".join(bitstring), 2), io_group)
+    c.io.set_reg(RX_REG, RX_VAL, io_group)
     
     c.io.reset_larpix(length=1024)
     c.io.reset_larpix(length=1024)
@@ -139,15 +134,18 @@ def main(vdda, vddd, io_group=1, pacman_tile=1, verbose=True):
 
     all_keys=[]
      
-    conf_root(c, chip11_key, 11, IO_GROUP, IO_CHAN)
+    conf_root(c, chip11_key, 11, IO_GROUP, IO_CHAN, pacman_version)
     all_keys.append(chip11_key)
   
 
 
     # ADD CODE HERE TO SET SPECIFIC REGISTERS
 
-    set_register(c, chip11_key, 'channel_mask', [1]*64)
-    set_register(c, chip11_key, 'enable_periodic_trigger', 1)
+    set_register(c, chip11_key, 'channel_mask', [0]*64)
+    set_register(c, chip11_key, 'csa_enable', [1]*64)
+    set_register(c, chip11_key, 'enable_periodic_reset', 1)
+    set_register(c, chip11_key, 'periodic_reset_cycles', 4)
+    set_register(c, chip11_key, 'threshold_global', 14)
 
     # Check that all of the registers were successfully written!
 
