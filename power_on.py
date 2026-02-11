@@ -159,6 +159,6 @@ if __name__ == '__main__':
     parser.add_argument('--vdda', default='0', type=str,
                         help='''VDDA dac value''')
     parser.add_argument('--vddd', default='0', type=str,
-                        help='''VDDA dac value''')
+                        help='''VDDD dac value''')
     args = parser.parse_args()
     main(**vars(args))
