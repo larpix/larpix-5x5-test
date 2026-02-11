@@ -8,7 +8,7 @@ import pickle
 
 
 def power_readback(io, io_group, pacman_version, tile):
-    readback={}
+    readback = {}
     for i in tile:
         readback[i]=[]
         if pacman_version=='v1rev5':
@@ -41,7 +41,7 @@ def power_readback(io, io_group, pacman_version, tile):
                          (((vddd>>16)>>3)*4),
                          (((iddd>>16)-(iddd>>31)*65535)*500*0.001)]
         else:
-            print('WARNING: PACMAN version ',pacman_version,' unknown')
+            print('WARNING: PACMAN version ', pacman_version, ' unknown')
             return readback
     return readback
 
@@ -52,8 +52,8 @@ def main(vdda, vddd, io_group=1, pacman_tile=1, verbose=True):
     IO_GROUP = io_group
     PACMAN_TILE = pacman_tile  # 1IO_CHAN = 25 # 1
     IO_CHAN = (pacman_tile-1) * 4 + 1
-    VDDA_DAC = vdda #VDDA_DAC = 52000 #48000 cold
-    VDDD_DAC = vddd #VDDD_DAC = 28000 # 32000# 28500 # ~1.1 V #42000 cold
+    VDDA_DAC = vdda  # VDDA_DAC = 52000 #48000 cold
+    VDDD_DAC = vddd  # VDDD_DAC = 28000 # 32000# 28500 # ~1.1 V #42000 cold
     RESET_CYCLES = 300000  # 5000000
 
     # create a larpix controller
@@ -78,14 +78,19 @@ def main(vdda, vddd, io_group=1, pacman_tile=1, verbose=True):
         c.io.set_reg(0x00000014, 0, io_group)
 
         readback = power_readback(
-        c.io, io_group, pacman_version, [PACMAN_TILE])
+            c.io, io_group, pacman_version, [1, 2, 3, 4, 5, 6, 7, 8])
         time.sleep(0.015)
-    
+
+
 if __name__ == '__main__':
-        parser = argparse.ArgumentParser()
-        parser.add_argument('--io_group', default=1, type=int, help='''Which io_group, default 1''')
-        parser.add_argument('--pacman_tile', default=1, type=int, help='''Which tile to enable power on''')
-        parser.add_argument('--vdda', default=46000, type=int, help='''VDDA dac value''')
-        parser.add_argument('--vddd', default=22000, type=int, help='''VDDA dac value''')
-        args = parser.parse_args()
-        main(**vars(args))
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--io_group', default=1, type=int,
+                        help='''Which io_group, default 1''')
+    parser.add_argument('--pacman_tile', default=1, type=int,
+                        help='''Which tile to enable power on''')
+    parser.add_argument('--vdda', default=46000, type=int,
+                        help='''VDDA dac value''')
+    parser.add_argument('--vddd', default=22000, type=int,
+                        help='''VDDA dac value''')
+    args = parser.parse_args()
+    main(**vars(args))
