@@ -105,18 +105,24 @@ def main(vdda, vddd, io_group=1, pacman_tile='1', verbose=True):
 
     c.io.set_reg(RX_REG, RX_VAL, io_group)
 
-    if True:
-        print('enable pacman power')
-        # set up mclk in pacman
-        c.io.set_reg(0x101c, 4, io_group)
-        c.io.set_uart_clock_ratio(IO_CHAN, CLK_RATIO)
+    print('enable pacman power')
+    # set up mclk in pacman
+    c.io.set_reg(0x101c, 4, io_group)
+
+    # enable pacman power
+    c.io.set_reg(0x00000014, 1, io_group)
+
+    # set uart clock ratio and power for all tiles
+    for PACMAN_TILE in list_pacman_tiles:
+        IO_CHAN = (PACMAN_TILE-1) * 4 + 1
+        c.io.set_uart_clock_ratio(IO_CHAN,   CLK_RATIO)
         time.sleep(0.015)
         c.io.set_uart_clock_ratio(IO_CHAN+1, CLK_RATIO)
         time.sleep(0.015)
         c.io.set_uart_clock_ratio(IO_CHAN+2, CLK_RATIO)
         time.sleep(0.015)
         c.io.set_uart_clock_ratio(IO_CHAN+3, CLK_RATIO)
-        
+
         time.sleep(0.015)
 
         # set voltage dacs  VDDD first
